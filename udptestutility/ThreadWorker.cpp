@@ -53,6 +53,9 @@ ThreadWorker::ThreadWorker(const ConnectionConfig& config)
 		return;
 	}
 
+	int optval = 1;
+	setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR,
+		reinterpret_cast<const char*>(&optval), sizeof(optval));
 	// Prepare destination address
 	m_destInfo.sin_family = AF_INET;
 	m_destInfo.sin_port = htons(m_config.destination_port);

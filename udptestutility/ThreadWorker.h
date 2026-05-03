@@ -66,7 +66,7 @@ private:
     void RunLoop();
 
 private:
-    ConnectionConfig m_config;    /**< Full copy of configuration for thread-safe access. */
+    ConnectionConfig m_config;    /**< Full copy of configuration for thread-safe access. Not the best approach*/
 
     std::chrono::milliseconds m_period;     /**< Interval between packet transmissions. */
     std::chrono::steady_clock::time_point m_nextTimeToExecute{}; /**< Next scheduled time for packet sending. */
