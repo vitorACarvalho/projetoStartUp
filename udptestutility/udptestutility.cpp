@@ -67,7 +67,13 @@ int main(int argc, char** argv)
 
     std::cout << "Stopping..." << std::endl;
     for (auto& t : threads)
+    {
         t->Join();
-
+        // this is not necessary since the destructor of ThreadWorker will call Join() if not already called, but it's cleaner to do it explicitly here
+        // doing it only for logs
+        std::cout << "Thread " << t << " stopped." << std::endl;
+    }
+    std::cout << "All threads stopped. Press any key to exit" << std::endl;
+    std::cin.get() ; // Wait for user input before exiting, to allow reading the final logs
     return 0;
 }
