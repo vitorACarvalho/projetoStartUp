@@ -3,6 +3,9 @@
 #include <list>
 #include <vector>
 #include "ThreadWorker.h"
+#include <filesystem>
+
+static const std::string DEFAULT_CONFIG_FILE = "./Config.ini";
 
 int main(int argc, char** argv)
 {
@@ -10,6 +13,13 @@ int main(int argc, char** argv)
     if (argc > 1)
     {
         filename = argv[1];
+    }
+    else
+    {
+        filename = DEFAULT_CONFIG_FILE;
+        std::filesystem::path path = filename;
+        std::cout << "No configuration file provided, using default: " << filename << std::endl;
+        std::filesystem::exists(filename);
     }
 
     bool initialized = ConfigurationManager::Instance().Initialize(filename);
