@@ -6,6 +6,7 @@
 #include <map>
 #include <functional>
 #include <optional>
+#include <vector>
 
 /**
  * @struct ConnectionConfig
@@ -22,7 +23,7 @@ struct ConnectionConfig {
     uint16_t destination_port;        /**< Destination UDP port. */
     uint16_t rate;                    /**< Sending Period in ms. */
     uint16_t source_port;             /**< Source UDP port. */
-    uint8_t* payload;                 /**< Pointer to dynamically allocated payload buffer. */
+    std::vector<uint8_t> payload;      /**< Payload buffer. */
 
     /**
      * @brief Default constructor.
@@ -35,8 +36,7 @@ struct ConnectionConfig {
         payload_length(0),
         destination_port(0),
         rate(0),
-        source_port(0),
-        payload(nullptr)
+        source_port(0)
     {
     }
 
@@ -48,9 +48,9 @@ struct ConnectionConfig {
     void Print()
     {
         std::cout << "PayloadLength = " << payload_length << std::endl;
-        if (payload != nullptr)
+        if (!payload.empty())
         {
-            std::cout << "payload = " << payload << std::endl;
+            std::cout << "payload = " << reinterpret_cast<const char*>(payload.data()) << std::endl;
         }
         std::cout << "destination_ip = " << destination_ip << std::endl;
         std::cout << "destination_port = " << destination_port << std::endl;
@@ -69,16 +69,14 @@ struct ConnectionConfig {
     /**
      * @brief Sets the payload data from a string.
      *
-     * Allocates memory and copies the raw bytes of the string.
+     * Copies the raw bytes of the string into the payload buffer and updates payload_length.
      *
      * @param value Raw payload string.
      */
     void SetPayload(const std::string& value)
     {
-        payload_length = value.size();
-        payload = new uint8_t[payload_length];
-        memset(payload, 0, payload_length);
-        memcpy(payload, value.c_str(), payload_length);
+        payload.assign(value.begin(), value.end());
+        payload_length = payload.size();
     }
 
     /**
@@ -100,8 +98,8 @@ struct ConnectionConfig {
     }
 
     /**
-     * @brief Sets the transmission rate from a string.
-     * @param value String representing packets-per-second rate.
+     * @brief Sets the sending period from a string.
+     * @param value String representing the sending period in milliseconds.
      */
     void SetRate(const std::string& value)
     {
@@ -147,8 +145,9 @@ public:
 
 private:
     /**
-     * @brief Processes the INI file line-by-line.
-     * @return True if the file was successfully parsed; false otherwise.
+     * @brief Processes the INI file line-by-line, populating m_outputList.
+     *
+     * Called internally by the constructor when the file is successfully opened.
      */
     void parseFile();
 
@@ -162,12 +161,10 @@ private:
     void tokenizerString(const std::string& input, std::string& key, std::string& value);
 
     /**
-      * @brief Splits a string of the form "key=value" into its components.
-      *
-      * @param input Raw input line.
-      * @param key Output parameter for the extracted key.
-      * @param value Output parameter for the extracted value.
-      */
+     * @brief Trims leading/trailing whitespace and strips inline comments (text after '#').
+     *
+     * @param s String to trim in-place.
+     */
     void trimStr(std::string& s);
 
     std::ifstream m_file;  /**< Input file stream used for reading the INI file. */

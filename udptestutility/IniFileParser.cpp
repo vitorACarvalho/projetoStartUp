@@ -13,7 +13,7 @@ IniFileParser::IniFileParser(const std::string& filename, std::list<ConnectionCo
     {
         if (current.has_value())
         {
-            m_outputList.push_back(*current);
+            m_outputList.push_back(std::move(*current));
         }
         current.emplace(); // constructs a fresh default ConnectionConfig in-place
     };
@@ -95,7 +95,7 @@ void IniFileParser::parseFile()
 
     if (connection.has_value())
     {
-        m_outputList.push_back(*connection);
+        m_outputList.push_back(std::move(*connection));
     }
 }
 
