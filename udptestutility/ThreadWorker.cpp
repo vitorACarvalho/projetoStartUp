@@ -8,22 +8,23 @@
 
 ThreadWorker::ThreadWorker(const ConnectionConfig& config)
 	: m_config(config)
+	, m_running(false)
 	, m_period(std::chrono::milliseconds(0))
 	, m_nextTimeToExecute(std::chrono::steady_clock::now())
 	, m_socket(INVALID_SOCKET)
 	, m_destInfo({})
 {
 	// Validate payload length
-	if ((m_config.payload == nullptr) && (m_config.payload_length == 0))
+	if (m_config.payload.empty() && m_config.payload_length == 0)
 	{
 		std::cout << "[ERROR] payload_length cannot be zero." << std::endl;
 		return;
 	}
 
-	// If payload pointer is null, generate synthetic payload automatically
-	if (m_config.payload == nullptr)
+	// If no payload was provided, generate a synthetic one automatically
+	if (m_config.payload.empty())
 	{
-		m_config.payload = new uint8_t[m_config.payload_length];
+		m_config.payload.resize(m_config.payload_length);
 		for (size_t i = 0; i < m_config.payload_length; i++)
 			m_config.payload[i] = static_cast<uint8_t>(i & 0xFF);
 	}
@@ -60,7 +61,7 @@ ThreadWorker::ThreadWorker(const ConnectionConfig& config)
 	m_destInfo.sin_family = AF_INET;
 	m_destInfo.sin_port = htons(m_config.destination_port);
 
-	//Set bind a source port if it was specified
+	// Bind to a specific source address/port if configured
 	if (m_config.source_port != 0 && !m_config.source_ip.empty())
 	{
 		sockaddr_in localAddr;
@@ -69,14 +70,13 @@ ThreadWorker::ThreadWorker(const ConnectionConfig& config)
 		localAddr.sin_addr.s_addr = INADDR_ANY;
 		localAddr.sin_port = htons(m_config.source_port);
 
-		if (inet_pton(AF_INET, m_config.source_ip.c_str(), &localAddr.sin_addr) <=0)
+		if (inet_pton(AF_INET, m_config.source_ip.c_str(), &localAddr.sin_addr) <= 0)
 		{
 			std::cout << "[ERROR] Error to set the source ip " << m_config.source_ip << std::endl;
 			closesocket(m_socket);
 			return;
 		}
 
-		// 3. Associar (bind) o socket à porta
 		if (bind(m_socket, (struct sockaddr*)&localAddr, sizeof(localAddr)) < 0) {
 			std::cout << "[ERROR] Error to bind a port " << m_config.source_port << std::endl;
 			closesocket(m_socket);
@@ -94,17 +94,18 @@ ThreadWorker::ThreadWorker(const ConnectionConfig& config)
 	}
 
 	// Start the worker thread
+	m_running = true;
 	m_threadHandler = std::thread(&ThreadWorker::RunLoop, this);
 }
 
 void ThreadWorker::RunLoop()
 {
-	while (true)
+	while (m_running)
 	{
 		// Send UDP packet
 		int bytesSent = sendto(
 			m_socket,
-			reinterpret_cast<const char*>(m_config.payload),
+			reinterpret_cast<const char*>(m_config.payload.data()),
 			static_cast<int>(m_config.payload_length),
 			0,
 			reinterpret_cast<sockaddr*>(&m_destInfo),
@@ -119,6 +120,8 @@ void ThreadWorker::RunLoop()
 
 ThreadWorker::~ThreadWorker()
 {
+	Join();
+
 	if (m_socket != INVALID_SOCKET)
 		closesocket(m_socket);
 

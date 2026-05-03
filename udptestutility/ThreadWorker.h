@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IniFileParser.h"
+#include <atomic>
 #include <chrono>
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -33,20 +34,19 @@ public:
     ThreadWorker(const ConnectionConfig& config);
 
     /**
-     * @brief Destructor ensures that the worker thread has finished.
-     *
-     * The socket is closed and the thread is joined safely.
+     * @brief Signals the worker thread to stop, joins it, then closes the socket.
      */
     ~ThreadWorker();
 
     /**
-     * @brief Waits for the internal worker thread to finish execution.
+     * @brief Signals the worker to stop and waits for the thread to exit.
      *
-     * This must be called before destroying the ThreadWorker
-     * if you need to ensure that all messages were sent.
+     * The thread exits after completing its current sleep interval.
+     * The destructor calls this automatically, so explicit use is optional.
      */
     inline void Join()
     {
+        m_running = false;
         if (m_threadHandler.joinable())
             m_threadHandler.join();
     }
@@ -61,12 +61,13 @@ private:
      *  2. Send the UDP payload to the destination IP/port
      *  3. Compute next execution timestamp
      *
-     * Timing uses steady_clock;
+     * Timing uses steady_clock.
      */
     void RunLoop();
 
 private:
-    ConnectionConfig m_config;    /**< Full copy of configuration for thread-safe access. Not the best approach*/
+    ConnectionConfig m_config;         /**< Full copy of configuration for thread-safe access. */
+    std::atomic<bool> m_running;       /**< Controls the run loop; set to false to stop the thread. */
 
     std::chrono::milliseconds m_period;     /**< Interval between packet transmissions. */
     std::chrono::steady_clock::time_point m_nextTimeToExecute{}; /**< Next scheduled time for packet sending. */
