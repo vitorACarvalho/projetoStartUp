@@ -5,6 +5,7 @@
 #include <list>
 #include <map>
 #include <functional>
+#include <optional>
 
 /**
  * @struct ConnectionConfig
@@ -14,7 +15,7 @@
  * transmission rate. It also provides helper methods for assigning values
  * from strings.
  */
-typedef struct _Connection {
+struct ConnectionConfig {
     std::string destination_ip;       /**< Destination IPv4 address as string. */
     std::string source_ip;            /**< Source IPv4 address as string. */
     size_t payload_length;            /**< Size of the payload in bytes. */
@@ -28,7 +29,7 @@ typedef struct _Connection {
      *
      * Initializes all fields to zero or empty values.
      */
-    _Connection() :
+    ConnectionConfig() :
         destination_ip(""),
         source_ip(""),
         payload_length(0),
@@ -124,7 +125,7 @@ typedef struct _Connection {
     {
         source_ip = value;
     }
-} ConnectionConfig;
+};
 
 /**
  * @class IniFileParser
@@ -160,6 +161,15 @@ private:
      */
     void tokenizerString(const std::string& input, std::string& key, std::string& value);
 
+    /**
+      * @brief Splits a string of the form "key=value" into its components.
+      *
+      * @param input Raw input line.
+      * @param key Output parameter for the extracted key.
+      * @param value Output parameter for the extracted value.
+      */
+    void trimStr(std::string& s);
+
     std::ifstream m_file;  /**< Input file stream used for reading the INI file. */
 
     /**
@@ -167,7 +177,7 @@ private:
      *
      * Each handler receives a pointer to a ConnectionConfig instance and a string value.
      */
-    std::map<std::string, std::function<void(ConnectionConfig*&, const std::string&)>> m_dispatch;
+    std::map<std::string, std::function<void(std::optional<ConnectionConfig>&, const std::string&)>> m_dispatch;
 
     std::list<ConnectionConfig>& m_outputList; /**< Reference to the output list of parsed configurations. */
 };

@@ -9,33 +9,47 @@ IniFileParser::IniFileParser(const std::string& filename, std::list<ConnectionCo
 {
     // Create a mapping between INI keys and struct-member setter functions.
     // Each key maps to a lambda that modifies the current ConnectionConfig object.
-    m_dispatch["[Connection]"] = [&](ConnectionConfig*& current, const std::string&)
+    m_dispatch["[Connection]"] = [&](std::optional<ConnectionConfig>& current, const std::string&)
+    {
+        if (current.has_value())
         {
+            m_outputList.push_back(*current);
+        }
+        current.emplace(); // constructs a fresh default ConnectionConfig in-place
+    };
 
-            // First connection found — instantiate it
-            if (current == nullptr)
-            {
-                current = new ConnectionConfig();
-            }
-            else
-            {
-                // New connection header encountered while parsing another connection
-                // → push previous connection and start a new one
-                m_outputList.push_back(*current);
-                delete current;
-                current = new ConnectionConfig();
-            }
-        };
+    m_dispatch["payload_length"] = [](std::optional<ConnectionConfig>& current, const std::string& value)
+    {
+        current->SetPayloadLength(value); 
+    };
 
-    m_dispatch["payload_length"] = [](ConnectionConfig*& current, const std::string& value) { current->SetPayloadLength(value); };
-    m_dispatch["payload"] = [](ConnectionConfig*& current, const std::string& value) { current->SetPayload(value); };
-    m_dispatch["destination_ip"] = [](ConnectionConfig*& current, const std::string& value) { current->SetDestinationIp(value); };
-    m_dispatch["destination_port"] = [](ConnectionConfig*& current, const std::string& value) { current->SetDestinationPort(value); };
-    m_dispatch["sending_period"] = [](ConnectionConfig*& current, const std::string& value) { current->SetRate(value); };
-    m_dispatch["source_port"] = [](ConnectionConfig*& current, const std::string& value) { current->SetSourcePort(value); };
-    m_dispatch["source_ip"] = [](ConnectionConfig*& current, const std::string& value) { current->SetSourceIp(value); };
+    m_dispatch["payload"] = [](std::optional<ConnectionConfig>& current, const std::string& value)
+    {
+        current->SetPayload(value);
+    };
+    m_dispatch["destination_ip"] = [](std::optional<ConnectionConfig>& current, const std::string& value)
+    { 
+        current->SetDestinationIp(value);
+    };
+    m_dispatch["destination_port"] = [](std::optional<ConnectionConfig>& current, const std::string& value)
+    {
+        current->SetDestinationPort(value);
+    };
+    m_dispatch["sending_period"] = [](std::optional<ConnectionConfig>& current, const std::string& value)
+    {
+        current->SetRate(value);
+    };
+    m_dispatch["source_port"] = [](std::optional<ConnectionConfig>& current, const std::string& value)
+    {
+        current->SetSourcePort(value);
+    };
+    m_dispatch["source_ip"] = [](std::optional<ConnectionConfig>& current, const std::string& value)
+    {
+        current->SetSourceIp(value); 
+    };
 
     // Ensure output list starts empty
+        
     m_outputList.clear();
 
     if (m_file.is_open())
@@ -53,29 +67,21 @@ IniFileParser::IniFileParser(const std::string& filename, std::list<ConnectionCo
 void IniFileParser::parseFile()
 {
     std::string line;
-    ConnectionConfig* connection = nullptr;
+    std::optional<ConnectionConfig> connection; 
 
     while (std::getline(m_file, line))
     {
-        // Ignore empty and commented lines
         if (line.empty() || line[0] == '#')
             continue;
 
         std::string key, value;
 
-        // Special case: section header
         if (line == "[Connection]")
-        {
             key = line;
-        }
         else
-        {
             tokenizerString(line, key, value);
-        }
 
-        // Search for a handler for the extracted key
         auto handler = m_dispatch.find(key);
-
         if (handler == m_dispatch.end())
         {
             if (!key.empty())
@@ -87,35 +93,32 @@ void IniFileParser::parseFile()
         }
     }
 
-    // Store final connection if the file ends while parsing one
-    if (connection != nullptr)
+    if (connection.has_value())
     {
         m_outputList.push_back(*connection);
-        delete connection;
     }
 }
 
+void IniFileParser::trimStr(std::string& s)
+{
+    // Remove inline comments
+    auto pos = s.find('#');
+    if (pos != std::string::npos)
+        s = s.substr(0, pos);
+
+    // Trim left side
+    s.erase(s.begin(),
+        std::find_if(s.begin(), s.end(), [](char c) { return !std::isspace(c); }));
+
+    // Trim right side
+    s.erase(
+        std::find_if(s.rbegin(), s.rend(), [](char c) { return !std::isspace(c); }).base(),
+        s.end()
+    );
+}
 void IniFileParser::tokenizerString(const std::string& input, std::string& key, std::string& value)
 {
-    // Helper lambda to trim whitespace and remove comments
-    auto trimStr = [](std::string& s)
-        {
-            // Remove inline comments
-            auto pos = s.find('#');
-            if (pos != std::string::npos)
-                s = s.substr(0, pos);
-
-            // Trim left side
-            s.erase(s.begin(),
-                std::find_if(s.begin(), s.end(), [](char c) { return !std::isspace(c); }));
-
-            // Trim right side
-            s.erase(
-                std::find_if(s.rbegin(), s.rend(), [](char c) { return !std::isspace(c); }).base(),
-                s.end()
-            );
-        };
-
+    // Helper 
     auto pos = input.find('=');
     if (pos == std::string::npos)
     {
